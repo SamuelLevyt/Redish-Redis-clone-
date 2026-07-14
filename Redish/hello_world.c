@@ -3,17 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum {
-    DATABASE_CAPACITY = 100,
-    KEY_CAPACITY = 100,
-    VALUE_CAPACITY = 100,
-    COMMAND_CAPACITY = 256
-};
+#include "store.h"
 
-struct data {
-    char key[KEY_CAPACITY];
-    char value[VALUE_CAPACITY];
-};
+enum { COMMAND_CAPACITY = 256 };
 
 static const char TOKEN_DELIMITERS[] = " \t";
 
@@ -28,13 +20,13 @@ static void main_menu(void);
 static enum read_result read_command(char command[COMMAND_CAPACITY]);
 
 int main(void) {
-    struct data database[DATABASE_CAPACITY];
-    int dataIndex = 0;
+    Store database;
     char mainCommand[COMMAND_CAPACITY];
-    char *token;
     char *command;
     char *key;
     char *value;
+
+    store_init(&database);
 
     while (true) {
         enum read_result result;
@@ -61,8 +53,7 @@ int main(void) {
             continue;
         }
 
-        token = strtok(mainCommand, TOKEN_DELIMITERS);
-        command = token;
+        command = strtok(mainCommand, TOKEN_DELIMITERS);
         if (command == NULL) {
             continue;
         }
@@ -86,59 +77,49 @@ int main(void) {
         }
 
         if (strcmp(command, "SET") == 0) {
-            token = strtok(NULL, TOKEN_DELIMITERS);
-            key = token;
-            token = strtok(NULL, TOKEN_DELIMITERS);
-            value = token;
+            key = strtok(NULL, TOKEN_DELIMITERS);
+            value = strtok(NULL, TOKEN_DELIMITERS);
 
             if (key == NULL || value == NULL ||
                 strtok(NULL, TOKEN_DELIMITERS) != NULL) {
                 fprintf(stderr, "Usage: SET <key> <value>\n");
                 continue;
             }
-            if (strlen(key) >= KEY_CAPACITY) {
+            if (strlen(key) >= STORE_KEY_SIZE) {
                 fprintf(stderr, "Key is too long; the limit is %d characters.\n",
-                        KEY_CAPACITY - 1);
+                        STORE_KEY_SIZE - 1);
                 continue;
             }
-            if (strlen(value) >= VALUE_CAPACITY) {
+            if (strlen(value) >= STORE_VALUE_SIZE) {
                 fprintf(stderr, "Value is too long; the limit is %d characters.\n",
-                        VALUE_CAPACITY - 1);
+                        STORE_VALUE_SIZE - 1);
                 continue;
             }
-            if (dataIndex >= DATABASE_CAPACITY) {
-                fprintf(stderr, "Database is full; cannot store another key.\n");
+            if (!store_set(&database, key, value)) {
+                fprintf(stderr, "Failed to store key \"%s\"; the database is full.\n",
+                        key);
                 continue;
             }
-
-            memcpy(database[dataIndex].key, key, strlen(key) + 1);
-            memcpy(database[dataIndex].value, value, strlen(value) + 1);
-            dataIndex++;
 
             printf("\nThe \"%s\" key has been stored in memory.\n", key);
             continue;
         }
 
         if (strcmp(command, "GET") == 0) {
-            bool found = false;
+            const char *stored;
 
-            token = strtok(NULL, TOKEN_DELIMITERS);
-            key = token;
-
+            key = strtok(NULL, TOKEN_DELIMITERS);
             if (key == NULL || strtok(NULL, TOKEN_DELIMITERS) != NULL) {
                 fprintf(stderr, "Usage: GET <key>\n");
                 continue;
             }
 
-            for (int i = 0; i < dataIndex; i++) {
-                if (strcmp(database[i].key, key) == 0) {
-                    printf("\nThe value of the \"%s\" key is: %s\n", key, database[i].value);
-                    found = true;
-                }
-            }
-            if (!found) {
+            stored = store_get(&database, key);
+            if (stored == NULL) {
                 fprintf(stderr, "Key \"%s\" was not found.\n", key);
+                continue;
             }
+            printf("\nThe value of the \"%s\" key is: %s\n", key, stored);
             continue;
         }
 
@@ -148,7 +129,12 @@ int main(void) {
                 fprintf(stderr, "Usage: DEL <key>\n");
                 continue;
             }
-            fprintf(stderr, "DEL is not implemented.\n");
+
+            if (!store_del(&database, key)) {
+                fprintf(stderr, "Key \"%s\" was not found.\n", key);
+                continue;
+            }
+            printf("\nThe \"%s\" key has been deleted.\n", key);
             continue;
         }
 
@@ -181,7 +167,7 @@ static enum read_result read_command(char command[COMMAND_CAPACITY]) {
 static void main_menu(void) {
     printf("SET <key> <value> --> sets the key and value in the database.\n"
            "GET <key> --> retrieves the value set for the key.\n"
-           "DEL <key> --> not implemented.\n"
+           "DEL <key> --> deletes the key from the database.\n"
            "help --> displays this menu.\n"
            "end --> exits Redish.\n");
 }
