@@ -2,18 +2,15 @@
 #include <stdbool.h>
 #include <string.h>
 
-struct data{
-    char key[100];
-    char value[100];
-};
+#include "store.h"
 
 void mainMenu();
 bool hasDataCommand(const char *input);
 char *nextToken();
 
 int main() {
-    struct data database[100];
-    int dataIndex = 0;
+    Store database;
+    store_init(&database);
     bool end = false;
     char mainCommand[100] = "";
     char *token;
@@ -49,11 +46,9 @@ int main() {
             key = nextToken();
             value = nextToken();
 
-            strcpy(database[dataIndex].key, key);
-            strcpy(database[dataIndex].value, value);
-            dataIndex++;
-
-            printf("\nThe \"%s\" key has been stored in memory.\n", key);
+            if (store_set(&database, key, value)){
+                printf("\nThe \"%s\" key has been stored in memory.\n", key);
+            }
 
             strcpy(mainCommand, "");
         }
@@ -61,10 +56,17 @@ int main() {
         if (!strcmp(command, "GET")){
             key = nextToken();
 
-            for (int i = 0; i < dataIndex; i++){
-                if (strcmp(database[i].key, key) == 0){
-                    printf("\nThe value of the \"%s\" key is: %s\n", key, database[i].value);
-                }
+            const char *stored = store_get(&database, key);
+            if (stored != NULL){
+                printf("\nThe value of the \"%s\" key is: %s\n", key, stored);
+            }
+        }
+
+        if (!strcmp(command, "DEL")){
+            key = nextToken();
+
+            if (store_del(&database, key)){
+                printf("\nThe \"%s\" key has been deleted.\n", key);
             }
         }
     }while (end == false);
