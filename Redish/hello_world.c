@@ -49,8 +49,22 @@ int main() {
             token = strtok(NULL, " ");
             value = token;
 
-            strcpy(database[dataIndex].key, key);
-            strcpy(database[dataIndex].value, value);
+            if (key == NULL || value == NULL){
+                printf("\nUsage: SET <key> <value>\n");
+                strcpy(mainCommand, "");
+                continue;
+            }
+
+            if (dataIndex >= (int)(sizeof(database) / sizeof(database[0]))){
+                printf("\nDatabase is full; cannot store more keys.\n");
+                strcpy(mainCommand, "");
+                continue;
+            }
+
+            strncpy(database[dataIndex].key, key, sizeof(database[dataIndex].key) - 1);
+            database[dataIndex].key[sizeof(database[dataIndex].key) - 1] = '\0';
+            strncpy(database[dataIndex].value, value, sizeof(database[dataIndex].value) - 1);
+            database[dataIndex].value[sizeof(database[dataIndex].value) - 1] = '\0';
             dataIndex++;
 
             printf("\nThe \"%s\" key has been stored in memory.\n", key);
@@ -61,6 +75,12 @@ int main() {
         if (!strcmp(command, "GET")){
             token = strtok(NULL, " ");
             key = token;
+
+            if (key == NULL){
+                printf("\nUsage: GET <key>\n");
+                strcpy(mainCommand, "");
+                continue;
+            }
 
             for (int i = 0; i < dataIndex; i++){
                 if (strcmp(database[i].key, key) == 0){
