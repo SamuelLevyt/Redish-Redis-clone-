@@ -1,78 +1,187 @@
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-struct data{
-    char key[100];
-    char value[100];
+enum {
+    DATABASE_CAPACITY = 100,
+    KEY_CAPACITY = 100,
+    VALUE_CAPACITY = 100,
+    COMMAND_CAPACITY = 256
 };
 
-void mainMenu();
+struct data {
+    char key[KEY_CAPACITY];
+    char value[VALUE_CAPACITY];
+};
 
-int main() {
-    struct data database[100];
+static const char TOKEN_DELIMITERS[] = " \t";
+
+enum read_result {
+    READ_OK,
+    READ_EOF,
+    READ_TOO_LONG,
+    READ_ERROR
+};
+
+static void main_menu(void);
+static enum read_result read_command(char command[COMMAND_CAPACITY]);
+
+int main(void) {
+    struct data database[DATABASE_CAPACITY];
     int dataIndex = 0;
-    bool end = false;
-    char mainCommand[100] = "";
+    char mainCommand[COMMAND_CAPACITY];
     char *token;
     char *command;
     char *key;
     char *value;
 
-    do{
-        do{
-            if (strcmp(mainCommand, "") != 0){
-                if (strstr(mainCommand, "SET") == NULL && strstr(mainCommand, "GET") == NULL && strstr(mainCommand, "DEL") == NULL && strcmp(mainCommand, "end") != 0 && strcmp(mainCommand, "help") != 0){
-                    printf("\nInvalid command.\n");
-                }
-            }
-            if (strcmp(mainCommand, "help") == 0){
-                mainMenu();
-            }
-            if (strcmp(mainCommand, "end") == 0){
-                end = true;
-                printf("Exiting...");
-                break;
-            }
-            printf("\nType \"help\" to see all the commands you can use.\n");
-            printf("Enter your command: ");
-            fgets(mainCommand, 50, stdin);
-            mainCommand[strcspn(mainCommand, "\n")] = '\0';
-        }while (strstr(mainCommand, "SET") == 0 && strstr(mainCommand, "GET") == 0 && strstr(mainCommand, "DEL") == 0);
+    while (true) {
+        enum read_result result;
 
-        token = strtok(mainCommand, " ");
+        printf("\nType \"help\" to see all the commands you can use.\n");
+        printf("Enter your command: ");
+        if (fflush(stdout) == EOF) {
+            perror("Failed to display the command prompt");
+            return EXIT_FAILURE;
+        }
+
+        result = read_command(mainCommand);
+        if (result == READ_EOF) {
+            printf("\nExiting...\n");
+            return EXIT_SUCCESS;
+        }
+        if (result == READ_ERROR) {
+            perror("Failed to read command");
+            return EXIT_FAILURE;
+        }
+        if (result == READ_TOO_LONG) {
+            fprintf(stderr, "Command is too long; the limit is %d characters.\n",
+                    COMMAND_CAPACITY - 1);
+            continue;
+        }
+
+        token = strtok(mainCommand, TOKEN_DELIMITERS);
         command = token;
+        if (command == NULL) {
+            continue;
+        }
 
-        if (!strcmp(command, "SET")){
-            token = strtok(NULL, " ");
+        if (strcmp(command, "help") == 0) {
+            if (strtok(NULL, TOKEN_DELIMITERS) != NULL) {
+                fprintf(stderr, "Usage: help\n");
+                continue;
+            }
+            main_menu();
+            continue;
+        }
+
+        if (strcmp(command, "end") == 0) {
+            if (strtok(NULL, TOKEN_DELIMITERS) != NULL) {
+                fprintf(stderr, "Usage: end\n");
+                continue;
+            }
+            printf("Exiting...\n");
+            return EXIT_SUCCESS;
+        }
+
+        if (strcmp(command, "SET") == 0) {
+            token = strtok(NULL, TOKEN_DELIMITERS);
             key = token;
-            token = strtok(NULL, " ");
+            token = strtok(NULL, TOKEN_DELIMITERS);
             value = token;
 
-            strcpy(database[dataIndex].key, key);
-            strcpy(database[dataIndex].value, value);
+            if (key == NULL || value == NULL ||
+                strtok(NULL, TOKEN_DELIMITERS) != NULL) {
+                fprintf(stderr, "Usage: SET <key> <value>\n");
+                continue;
+            }
+            if (strlen(key) >= KEY_CAPACITY) {
+                fprintf(stderr, "Key is too long; the limit is %d characters.\n",
+                        KEY_CAPACITY - 1);
+                continue;
+            }
+            if (strlen(value) >= VALUE_CAPACITY) {
+                fprintf(stderr, "Value is too long; the limit is %d characters.\n",
+                        VALUE_CAPACITY - 1);
+                continue;
+            }
+            if (dataIndex >= DATABASE_CAPACITY) {
+                fprintf(stderr, "Database is full; cannot store another key.\n");
+                continue;
+            }
+
+            memcpy(database[dataIndex].key, key, strlen(key) + 1);
+            memcpy(database[dataIndex].value, value, strlen(value) + 1);
             dataIndex++;
 
             printf("\nThe \"%s\" key has been stored in memory.\n", key);
-
-            strcpy(mainCommand, "");
+            continue;
         }
 
-        if (!strcmp(command, "GET")){
-            token = strtok(NULL, " ");
+        if (strcmp(command, "GET") == 0) {
+            bool found = false;
+
+            token = strtok(NULL, TOKEN_DELIMITERS);
             key = token;
 
-            for (int i = 0; i < dataIndex; i++){
-                if (strcmp(database[i].key, key) == 0){
+            if (key == NULL || strtok(NULL, TOKEN_DELIMITERS) != NULL) {
+                fprintf(stderr, "Usage: GET <key>\n");
+                continue;
+            }
+
+            for (int i = 0; i < dataIndex; i++) {
+                if (strcmp(database[i].key, key) == 0) {
                     printf("\nThe value of the \"%s\" key is: %s\n", key, database[i].value);
+                    found = true;
                 }
             }
+            if (!found) {
+                fprintf(stderr, "Key \"%s\" was not found.\n", key);
+            }
+            continue;
         }
-    }while (end == false);
 
-    return 0;
+        if (strcmp(command, "DEL") == 0) {
+            key = strtok(NULL, TOKEN_DELIMITERS);
+            if (key == NULL || strtok(NULL, TOKEN_DELIMITERS) != NULL) {
+                fprintf(stderr, "Usage: DEL <key>\n");
+                continue;
+            }
+            fprintf(stderr, "DEL is not implemented.\n");
+            continue;
+        }
+
+        fprintf(stderr, "Invalid command: %s\n", command);
+    }
 }
 
-void mainMenu(){
-    printf("SET (key) (value) --> sets the key and value in the database.\nGET (key) --> retrieves the value that is set in the database with the same key.\nDEL (key) --> deletes the key and the value in the database.");
+static enum read_result read_command(char command[COMMAND_CAPACITY]) {
+    int next_character;
+
+    if (fgets(command, COMMAND_CAPACITY, stdin) == NULL) {
+        return ferror(stdin) ? READ_ERROR : READ_EOF;
+    }
+
+    if (strchr(command, '\n') == NULL && !feof(stdin)) {
+        do {
+            next_character = fgetc(stdin);
+        } while (next_character != '\n' && next_character != EOF);
+
+        if (ferror(stdin)) {
+            return READ_ERROR;
+        }
+        return READ_TOO_LONG;
+    }
+
+    command[strcspn(command, "\r\n")] = '\0';
+    return READ_OK;
+}
+
+static void main_menu(void) {
+    printf("SET <key> <value> --> sets the key and value in the database.\n"
+           "GET <key> --> retrieves the value set for the key.\n"
+           "DEL <key> --> not implemented.\n"
+           "help --> displays this menu.\n"
+           "end --> exits Redish.\n");
 }
