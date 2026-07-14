@@ -2,16 +2,13 @@
 #include <stdbool.h>
 #include <string.h>
 
-struct data{
-    char key[100];
-    char value[100];
-};
+#include "store.h"
 
 void mainMenu();
 
 int main() {
-    struct data database[100];
-    int dataIndex = 0;
+    Store database;
+    store_init(&database);
     bool end = false;
     char mainCommand[100] = "";
     char *token;
@@ -49,25 +46,9 @@ int main() {
             token = strtok(NULL, " ");
             value = token;
 
-            if (key == NULL || value == NULL){
-                printf("\nUsage: SET <key> <value>\n");
-                strcpy(mainCommand, "");
-                continue;
+            if (store_set(&database, key, value)){
+                printf("\nThe \"%s\" key has been stored in memory.\n", key);
             }
-
-            if (dataIndex >= (int)(sizeof(database) / sizeof(database[0]))){
-                printf("\nDatabase is full; cannot store more keys.\n");
-                strcpy(mainCommand, "");
-                continue;
-            }
-
-            strncpy(database[dataIndex].key, key, sizeof(database[dataIndex].key) - 1);
-            database[dataIndex].key[sizeof(database[dataIndex].key) - 1] = '\0';
-            strncpy(database[dataIndex].value, value, sizeof(database[dataIndex].value) - 1);
-            database[dataIndex].value[sizeof(database[dataIndex].value) - 1] = '\0';
-            dataIndex++;
-
-            printf("\nThe \"%s\" key has been stored in memory.\n", key);
 
             strcpy(mainCommand, "");
         }
@@ -76,16 +57,18 @@ int main() {
             token = strtok(NULL, " ");
             key = token;
 
-            if (key == NULL){
-                printf("\nUsage: GET <key>\n");
-                strcpy(mainCommand, "");
-                continue;
+            const char *stored = store_get(&database, key);
+            if (stored != NULL){
+                printf("\nThe value of the \"%s\" key is: %s\n", key, stored);
             }
+        }
 
-            for (int i = 0; i < dataIndex; i++){
-                if (strcmp(database[i].key, key) == 0){
-                    printf("\nThe value of the \"%s\" key is: %s\n", key, database[i].value);
-                }
+        if (!strcmp(command, "DEL")){
+            token = strtok(NULL, " ");
+            key = token;
+
+            if (store_del(&database, key)){
+                printf("\nThe \"%s\" key has been deleted.\n", key);
             }
         }
     }while (end == false);
