@@ -8,6 +8,8 @@ struct data{
 };
 
 void mainMenu();
+bool hasDataCommand(const char *input);
+char *nextToken();
 
 int main() {
     struct data database[100];
@@ -22,7 +24,7 @@ int main() {
     do{
         do{
             if (strcmp(mainCommand, "") != 0){
-                if (strstr(mainCommand, "SET") == NULL && strstr(mainCommand, "GET") == NULL && strstr(mainCommand, "DEL") == NULL && strcmp(mainCommand, "end") != 0 && strcmp(mainCommand, "help") != 0){
+                if (!hasDataCommand(mainCommand) && strcmp(mainCommand, "end") != 0 && strcmp(mainCommand, "help") != 0){
                     printf("\nInvalid command.\n");
                 }
             }
@@ -38,16 +40,14 @@ int main() {
             printf("Enter your command: ");
             fgets(mainCommand, 50, stdin);
             mainCommand[strcspn(mainCommand, "\n")] = '\0';
-        }while (strstr(mainCommand, "SET") == 0 && strstr(mainCommand, "GET") == 0 && strstr(mainCommand, "DEL") == 0);
+        }while (!hasDataCommand(mainCommand));
 
         token = strtok(mainCommand, " ");
         command = token;
 
         if (!strcmp(command, "SET")){
-            token = strtok(NULL, " ");
-            key = token;
-            token = strtok(NULL, " ");
-            value = token;
+            key = nextToken();
+            value = nextToken();
 
             strcpy(database[dataIndex].key, key);
             strcpy(database[dataIndex].value, value);
@@ -59,8 +59,7 @@ int main() {
         }
 
         if (!strcmp(command, "GET")){
-            token = strtok(NULL, " ");
-            key = token;
+            key = nextToken();
 
             for (int i = 0; i < dataIndex; i++){
                 if (strcmp(database[i].key, key) == 0){
@@ -75,4 +74,12 @@ int main() {
 
 void mainMenu(){
     printf("SET (key) (value) --> sets the key and value in the database.\nGET (key) --> retrieves the value that is set in the database with the same key.\nDEL (key) --> deletes the key and the value in the database.");
+}
+
+bool hasDataCommand(const char *input){
+    return strstr(input, "SET") != NULL || strstr(input, "GET") != NULL || strstr(input, "DEL") != NULL;
+}
+
+char *nextToken(){
+    return strtok(NULL, " ");
 }
